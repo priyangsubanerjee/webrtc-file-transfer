@@ -80,7 +80,7 @@ File transfer with WebRTC can be bi-directional. To send files to your peer:
 - SDP (Session Description Protocol)
 
 ## Alternatives
-- Building and SFU and transfer files over it.
+- Building an SFU and transfer files over it.
 - Check [EasyFi Db](https://github.com/priyangsubanerjee/easyfi-db) for more information.
 ## Authors
 
