@@ -50,7 +50,7 @@ Start the server
   npm start 
 ```
 
-The defauly `port` for the express server is 3000. Visit http://localhost:3000 to view it on browser.
+The defauly `port` for the express server is `3000`. Visit http://localhost:3000 to view it on browser.
 
 
 ## Establishing Connection
