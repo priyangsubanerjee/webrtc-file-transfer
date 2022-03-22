@@ -67,7 +67,7 @@ To establish connection between two peer's whether on same network or on differe
 
 If the connecton above was successfull, the the status text above will change to `Connected to peer`.
 
-`Note:` In future we will use WebScokets which will act as our signalling servers and we will get rid of all this text passing heck.
+`Note:` In future we will use WebSockets which will work as signalling server and we will get rid of all this text passing heck.
 
 ## Sending files
 
