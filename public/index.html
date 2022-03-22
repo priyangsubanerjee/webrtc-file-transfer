@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+
+
+    <style>
+        body{
+
+            padding: 20px;
+        }
+    </style>
+
+
+    <h1>P2P File Tansfer (WebRTC)</h1>
+    <p id="connectionStatus">Not connected to peer.</p>
+    <ul style="font-size: 14px; line-height: 1.9; margin-top: 20px;">
+        <li>Step 1: Open this page in 2 tabs</li>
+        <li>Step 2: In the first tab, click on create offer and copy the text generated in the text box under Local</li>
+        <li>Step 3: In the second tab, paste the text generated in the text box under Remote</li>
+        <li>Step 4: Click on connect under Remote in the 2nd tab, now copy the text generated in the Local text area.</li>
+        <li>Step 5: Paste this in the Remote text box in 1st tab and click on connect.</li>
+        <li>Connected to peer should populate, and now share files. (Max file size: 50mb)</li>
+    </ul>
+
+    <div style="display: flex; align-items: center; width: 100%;">
+
+        <div style="width: 50%; background-color: beige; padding: 20px;">
+            <h2>Local</h2>
+            <textarea id="localConfigText" cols="50" rows="15"></textarea>
+            <button id="connectLocalConfig">Create local offer</button>
+        </div>
+    
+        <div style="width: 50%; padding: 20px; background: beige;">
+            <h2>Remote</h2>
+            <textarea id="remoteConfigText" cols="50" rows="15"></textarea>
+            <button id="connectRemoteConfig">Connect</button>
+        </div>
+
+    </div>
+
+    <br>
+    <hr>
+    <br>
+
+
+    <div>
+        <input type="file" id="file-upload">
+        <button hidden id="sendFile">Send file</button><br>
+        <progress id="progress" value="0"></progress>&nbsp;&nbsp;<label id="progressLabel"></label>
+    </div>
+
+
+    <br>
+    <hr>
+    <br>
+
+    <small id="progress"></small>
+    <a href="" id="downloadanchor"></a>
+    <button hidden id="createBlob">Create blob</button>
+
+    <script>
+        
+
+        var remoteConnectBtn = document.getElementById('connectRemoteConfig');
+        var localConnectBtn = document.getElementById('connectLocalConfig');
+        var remoteConfigText = document.getElementById('remoteConfigText');
+        var fileUpload = document.getElementById('file-upload');
+        var sendFileBtn = document.getElementById('sendFile');
+        var downloadAnchor = document.getElementById('downloadanchor');
+        var createBlobBtn = document.getElementById('createBlob');
+        var progressbar = document.getElementById('progress');
+        var progressLabel = document.getElementById('progressLabel');
+
+        let localPeer = new RTCPeerConnection(
+            {
+                iceServers: [{
+   urls: [ "stun:fr-turn1.xirsys.com" ]
+}, {
+   username: "IwmmFxExIblBBxZgin8I7a6xD0C16HFyH27bXPsJ6NpQP7aMU-8OBjjxnG0mFvmDAAAAAGIjjcFwcml5YW5nc3ViYW5lcmplZQ==",
+   credential: "25624f76-9ca0-11ec-9698-0242ac120004",
+   urls: [
+       "turn:fr-turn1.xirsys.com:80?transport=udp",
+       "turn:fr-turn1.xirsys.com:3478?transport=udp",
+       "turn:fr-turn1.xirsys.com:80?transport=tcp",
+       "turn:fr-turn1.xirsys.com:3478?transport=tcp",
+       "turns:fr-turn1.xirsys.com:443?transport=tcp",
+       "turns:fr-turn1.xirsys.com:5349?transport=tcp"
+   ]
+}]
+            }
+        );
+
+        let dataChannel;
+        let receiveBuffer = [];
+        let receivedSize = 0;
+
+        let receivedFile = {}
+
+
+        localConnectBtn.addEventListener('click', async function() {
+                       
+            dataChannel = localPeer.createDataChannel('dataChannel');
+            dataChannel.binaryType = 'arraybuffer';
+            dataChannel.onmessage = msg => onReceiveMessageCallback(msg);
+            dataChannel.bufferedAmountLowThreshold = 0;
+            dataChannel.onopen = () => document.getElementById('connectionStatus').innerHTML = 'Connected to peer.';
+
+            localPeer.onicecandidate = o => document.querySelector('#localConfigText').value = JSON.stringify(localPeer.localDescription);
+
+            const localOffer = await localPeer.createOffer();
+            localPeer.setLocalDescription(new RTCSessionDescription(localOffer));
+        });
+
+
+        remoteConnectBtn.addEventListener('click', async function() {
+
+            localPeer.setRemoteDescription(JSON.parse(remoteConfigText.value));
+            localPeer.localDescription == null ? localPeer.createAnswer().then(answer => localPeer.setLocalDescription(answer)) : null;
+            localPeer.onicecandidate = o => document.querySelector('#localConfigText').value = JSON.stringify(localPeer.localDescription);
+
+        });
+
+
+        sendFileBtn.addEventListener('click', function() {
+
+        });
+
+
+        fileUpload.addEventListener('change', function() {
+
+            const file = fileUpload.files[0];
+            progressbar.max = file.size;
+            progressbar.value = 0;
+            progressLabel.innerHTML = 0;
+
+            dataChannel.send(JSON.stringify({
+
+                name: file.name,
+                size: file.size,
+                type: file.type,
+            }));
+
+            sendData();
+
+        });
+
+
+        localPeer.ondatachannel = e => {
+
+            dataChannel = e.channel;
+            dataChannel.binaryType = 'arraybuffer';
+            dataChannel.bufferedAmountLowThreshold = 0;
+            dataChannel.onmessage = msg => onReceiveMessageCallback(msg);
+            dataChannel.onopen = () => document.getElementById('connectionStatus').innerHTML = 'Connected to peer.';
+        }
+
+
+        
+        function sendData() {
+
+            let file = fileUpload.files[0];
+            let offset = 0;
+            let maxChunkSize = 16384;
+            progressbar.value = 0;
+            
+            console.log(dataChannel.bufferedAmountLowThreshold);
+
+            file.arrayBuffer().then(buffer => {
+
+                const send = () => {
+                    while (buffer.byteLength) {
+                        if (dataChannel.bufferedAmount > dataChannel.bufferedAmountLowThreshold) {
+                            dataChannel.onbufferedamountlow = () => {
+                                dataChannel.onbufferedamountlow = null;
+                                send();
+                            };
+                            return;
+                        }
+                        const chunk = buffer.slice(0, maxChunkSize);
+                        buffer = buffer.slice(maxChunkSize, buffer.byteLength);
+                        dataChannel.send(chunk);
+                        offset += maxChunkSize;
+                        console.log('Sent ' + offset + ' bytes.');
+                        progressbar.value = offset >= file.size ? file.size : offset;
+                        progressLabel.innerHTML = offset >= file.size ? 'File sent' : (offset/file.size*100).toFixed(1) + '%';
+                    }
+                };
+
+                send();
+
+            })
+
+            //console.log(`File is ${[file.name, file.size, file.type, file.lastModified].join(' ')}`);
+            //fileReader = new FileReader();
+
+        }
+
+
+        function onReceiveMessageCallback(event) {
+
+            //console.log(receivedFile)
+
+            if(receivedFile['name'] == undefined) {
+
+                const file = JSON.parse(event.data);
+                console.log(file)
+                receivedFile = file;
+                progressbar.max = file.size;
+                progressbar.value = 0;
+                return;
+            }
+
+            receiveBuffer.push(event.data);
+            receivedSize += event.data.byteLength;
+            progressbar.value = receivedSize;
+            progressLabel.innerHTML = 'Receive: ' + (receivedSize/receivedFile.size*100).toFixed(1) + '%';
+
+            if(receivedSize == receivedFile['size']) {
+
+                const blob = new Blob(receiveBuffer, {type: receivedFile['type']});
+                downloadAnchor.href = URL.createObjectURL(blob);
+                downloadAnchor.download = receivedFile['name'];
+                downloadAnchor.innerHTML = receivedFile['name'];
+                //downloadAnchor.click();
+                receiveBuffer = [];
+                receivedSize = 0;
+                receivedFile = {};
+            }
+        } 
+
+
+    </script>
+</body>
+</html>
