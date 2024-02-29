@@ -95,7 +95,14 @@
       var progressLabel = document.getElementById("progressLabel");
 
       let localPeer = new RTCPeerConnection({
-        iceServers: [{ urls: "STUN:freestun.net:3479" }],
+        iceServers: [
+          { urls: "stun:freestun.net:5350" },
+          {
+            urls: "turns:freestun.tel:5350",
+            username: "free",
+            credential: "free",
+          },
+        ],
       });
 
       let dataChannel;
